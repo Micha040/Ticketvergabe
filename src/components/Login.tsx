@@ -43,7 +43,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     try {
       const result = await AuthService.login(email, password)
       
-      if (result.success && result.user) {
+      if (result.success) {
         onLoginSuccess()
       } else {
         setError(result.message)

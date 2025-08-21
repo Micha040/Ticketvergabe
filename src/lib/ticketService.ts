@@ -27,10 +27,6 @@ interface GameWithApplications {
   days_until_game: number;
 }
 
-interface ApplyForTicketRequest {
-  game_id: string;
-}
-
 interface ApplyForTicketResponse {
   success: boolean;
   message: string;
@@ -139,7 +135,7 @@ export class TicketService {
       }
 
       // Prüfe ob bereits eine Bewerbung existiert
-      const { data: existingApplication, error: checkError } = await supabase
+      const { data: existingApplication } = await supabase
         .from('ticket_applications')
         .select('*')
         .eq('user_id', userId)

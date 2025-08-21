@@ -4,7 +4,7 @@ import { supabase } from "./supabase";
 interface User {
   id: string;
   email: string;
-  password: string;
+  password: string | null; // Changed to allow null
   name?: string;
   role: "admin" | "user";
   created_at: string;
@@ -19,26 +19,21 @@ interface LoginResponse {
 export class AuthService {
   private static currentUser: User | null = null;
 
-  // Benutzer anmelden (nur E-Mail eingeben) - erstellt neuen Benutzer ohne Passwort
   static async requestLogin(email: string): Promise<LoginResponse> {
     try {
-      // Prüfe ob der Benutzer bereits existiert
-      const { data: existingUser, error: checkError } = await supabase
+      const { data: existingUser } = await supabase
         .from("users")
         .select("*")
         .eq("email", email.toLowerCase())
         .single();
 
       if (existingUser) {
-        // Benutzer existiert bereits
         if (existingUser.password) {
-          // Benutzer hat bereits ein Passwort - kann sich anmelden
           return {
             success: true,
             message: "Benutzer gefunden! Du kannst dich jetzt mit deinem Passwort anmelden."
           };
         } else {
-          // Benutzer existiert aber hat kein Passwort
           return {
             success: false,
             message: "Dein Account wurde bereits angelegt, aber der Administrator hat noch kein Passwort für dich gesetzt. Bitte warte auf die E-Mail mit deinem Passwort."
@@ -46,13 +41,12 @@ export class AuthService {
         }
       }
 
-      // Benutzer existiert nicht - erstelle neuen Benutzer ohne Passwort
-      const { data: newUser, error: createError } = await supabase
+      const { error: createError } = await supabase
         .from("users")
         .insert([
           {
             email: email.toLowerCase(),
-            password: null, // Kein Passwort - Admin muss es setzen
+            password: null,
             role: "user"
           }
         ])
@@ -66,9 +60,6 @@ export class AuthService {
           message: "Fehler beim Erstellen des Accounts. Bitte versuche es erneut oder kontaktiere den Administrator."
         };
       }
-
-      // Hier würde normalerweise eine E-Mail-Benachrichtigung an den Admin gesendet
-      // Für Demo-Zwecke geben wir eine Erfolgsmeldung zurück
       return {
         success: true,
         message: "Account erfolgreich erstellt! Der Administrator wird dir ein Passwort per E-Mail zusenden. Du kannst dich dann anmelden."
@@ -82,55 +73,43 @@ export class AuthService {
     }
   }
 
-  // Benutzer mit Passwort anmelden
-  static async login(
-    email: string,
-    password: string
-  ): Promise<{ success: boolean; user?: User; message: string }> {
+  static async login(email: string, password: string): Promise<LoginResponse> {
     try {
-      const { data: users, error } = await supabase
+      const { data: user, error } = await supabase
         .from("users")
         .select("*")
         .eq("email", email.toLowerCase())
         .eq("password", password)
         .single();
 
-      if (error || !users) {
+      if (error || !user) {
         return {
           success: false,
-          message: "Ungültige E-Mail oder Passwort.",
+          message: "Ungültige E-Mail oder Passwort."
         };
       }
 
-      this.currentUser = users;
+      AuthService.currentUser = user;
       return {
         success: true,
-        user: users,
-        message: "Anmeldung erfolgreich!",
+        message: "Anmeldung erfolgreich!"
       };
     } catch (error) {
+      console.error("Fehler bei der Anmeldung:", error);
       return {
         success: false,
-        message: "Ein Fehler ist aufgetreten. Bitte versuche es erneut.",
+        message: "Ein Fehler ist bei der Anmeldung aufgetreten."
       };
     }
   }
 
-  // Aktuellen Benutzer abrufen
   static getCurrentUser(): User | null {
-    return this.currentUser;
+    return AuthService.currentUser;
   }
 
-  // Benutzer abmelden
   static logout(): void {
-    this.currentUser = null;
-  }
-
-  // Prüfen ob Benutzer angemeldet ist
-  static isAuthenticated(): boolean {
-    return this.currentUser !== null;
+    AuthService.currentUser = null;
   }
 }
 
-// Exportiere die Typen für andere Dateien
-export type { User, LoginResponse };
+export type { User, LoginResponse }; // Exported for other files
