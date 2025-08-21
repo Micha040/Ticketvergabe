@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { AuthService } from '../lib/auth'
+import Footer from './Footer'
 
 interface LoginProps {
   onLoginSuccess: () => void
@@ -138,18 +139,18 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
             <div className="button-group">
               <button
+                type="submit"
+                disabled={loading}
+                className="form-button"
+              >
+                {loading ? 'Wird angemeldet...' : 'Anmelden'}
+              </button>
+              <button
                 type="button"
                 onClick={handleBackToEmail}
                 className="form-button secondary"
               >
                 Zurück
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="form-button"
-              >
-                {loading ? 'Anmeldung läuft...' : 'Anmelden'}
               </button>
             </div>
           </form>
@@ -164,6 +165,8 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           </p>
         </div>
       </div>
+      
+      <Footer className="login-footer" />
     </div>
   )
 }

@@ -19,8 +19,25 @@ interface LoginResponse {
 export class AuthService {
   private static currentUser: User | null = null;
 
+  // Blacklist für blockierte E-Mail-Domains
+  private static readonly BLACKLISTED_DOMAINS = ['mailrez.com'];
+
+  // Prüfe ob E-Mail-Adresse blockiert ist
+  private static isEmailBlocked(email: string): boolean {
+    const domain = email.toLowerCase().split('@')[1];
+    return this.BLACKLISTED_DOMAINS.includes(domain);
+  }
+
   static async requestLogin(email: string): Promise<LoginResponse> {
     try {
+      // Prüfe zuerst ob E-Mail blockiert ist
+      if (this.isEmailBlocked(email)) {
+        return {
+          success: false,
+          message: "Diese E-Mail-Adresse ist nicht erlaubt."
+        };
+      }
+
       const { data: existingUser } = await supabase
         .from("users")
         .select("*")
@@ -75,6 +92,14 @@ export class AuthService {
 
   static async login(email: string, password: string): Promise<LoginResponse> {
     try {
+      // Prüfe zuerst ob E-Mail blockiert ist
+      if (this.isEmailBlocked(email)) {
+        return {
+          success: false,
+          message: "Diese E-Mail-Adresse ist nicht erlaubt."
+        };
+      }
+
       const { data: user, error } = await supabase
         .from("users")
         .select("*")

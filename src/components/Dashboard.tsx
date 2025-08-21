@@ -3,6 +3,7 @@ import { AuthService } from '../lib/auth'
 import AdminPanel from './AdminPanel'
 import GameManagement from './GameManagement'
 import TicketBooking from './TicketBooking'
+import Footer from './Footer'
 
 interface DashboardProps {
   onLogout: () => void
@@ -38,7 +39,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       <nav className="dashboard-nav">
         <div className="nav-container">
           <h1 className="nav-title">
-            Compagni St. Pauli
+            Ticketvergabe
           </h1>
           <div className="nav-user">
             <span className="user-info">
@@ -84,6 +85,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       <main className="dashboard-main">
         {renderTabContent()}
       </main>
+      
+      <Footer />
     </div>
   )
 }

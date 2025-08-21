@@ -2,21 +2,21 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
 interface User {
-  id: string
-  email: string
-  password: string | null
-  name?: string
-  role: 'admin' | 'user'
-  created_at: string
-  updated_at: string
+  id: string;
+  email: string;
+  password: string | null;
+  name: string | null;
+  role: 'admin' | 'user';
+  created_at: string;
 }
 
 export default function AdminPanel() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedUser, setSelectedUser] = useState<User | null>(null)
-  const [newPassword, setNewPassword] = useState('')
   const [message, setMessage] = useState('')
+  const [selectedUser, setSelectedUser] = useState<string | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
 
   useEffect(() => {
     loadUsers()
@@ -32,9 +32,10 @@ export default function AdminPanel() {
       if (error) {
         console.error('Fehler beim Laden der Benutzer:', error)
         setMessage('Fehler beim Laden der Benutzer')
-      } else {
-        setUsers(data || [])
+        return
       }
+
+      setUsers(data || [])
     } catch (error) {
       console.error('Unerwarteter Fehler:', error)
       setMessage('Unerwarteter Fehler beim Laden der Benutzer')
@@ -43,37 +44,45 @@ export default function AdminPanel() {
     }
   }
 
-  const handleSetPassword = async () => {
-    if (!selectedUser || !newPassword.trim()) {
-      setMessage('Bitte wähle einen Benutzer aus und gib ein Passwort ein')
-      return
-    }
+  const handleSetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedUser || !newPassword.trim()) return
+
+    setLoading(true)
+    setMessage('')
 
     try {
       const { error } = await supabase
         .from('users')
         .update({ password: newPassword.trim() })
-        .eq('id', selectedUser.id)
+        .eq('id', selectedUser)
 
       if (error) {
         console.error('Fehler beim Setzen des Passworts:', error)
         setMessage('Fehler beim Setzen des Passworts')
-      } else {
-        setMessage(`Passwort für ${selectedUser.email} erfolgreich gesetzt!`)
-        setNewPassword('')
-        setSelectedUser(null)
-        loadUsers() // Liste neu laden
+        return
       }
+
+      setMessage('Passwort erfolgreich gesetzt!')
+      setNewPassword('')
+      setShowPasswordForm(false)
+      setSelectedUser(null)
+      loadUsers() // Liste neu laden
     } catch (error) {
       console.error('Unerwarteter Fehler:', error)
       setMessage('Unerwarteter Fehler beim Setzen des Passworts')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Möchtest du diesen Benutzer wirklich löschen?')) {
+  const handleDeleteUser = async (userId: string, userEmail: string) => {
+    if (!confirm(`Möchtest du den Benutzer "${userEmail}" wirklich löschen?`)) {
       return
     }
+
+    setLoading(true)
+    setMessage('')
 
     try {
       const { error } = await supabase
@@ -84,34 +93,42 @@ export default function AdminPanel() {
       if (error) {
         console.error('Fehler beim Löschen des Benutzers:', error)
         setMessage('Fehler beim Löschen des Benutzers')
-      } else {
-        setMessage('Benutzer erfolgreich gelöscht!')
-        loadUsers() // Liste neu laden
+        return
       }
+
+      setMessage('Benutzer erfolgreich gelöscht!')
+      loadUsers() // Liste neu laden
     } catch (error) {
       console.error('Unerwarteter Fehler:', error)
       setMessage('Unerwarteter Fehler beim Löschen des Benutzers')
+    } finally {
+      setLoading(false)
     }
   }
 
-  if (loading) {
+  const isBlockedEmail = (email: string): boolean => {
+    const domain = email.toLowerCase().split('@')[1];
+    return domain === 'mailrez.com';
+  }
+
+  if (loading && users.length === 0) {
     return <div className="loading">Lade Benutzer...</div>
   }
 
   return (
     <div className="admin-panel">
       <div className="admin-header">
-        <h2>Admin-Panel - Benutzerverwaltung</h2>
+        <h2>Benutzer-Verwaltung</h2>
         <p>Verwalte Benutzer und setze Passwörter</p>
       </div>
 
-      {message && (
-        <div className={`message ${message.includes('Fehler') ? 'error' : 'success'}`}>
-          {message}
-        </div>
-      )}
-
       <div className="admin-content">
+        {message && (
+          <div className={`message ${message.includes('Fehler') ? 'error' : 'success'}`}>
+            {message}
+          </div>
+        )}
+
         <div className="users-list">
           <h3>Alle Benutzer</h3>
           <div className="users-table">
@@ -122,14 +139,19 @@ export default function AdminPanel() {
                   <th>Name</th>
                   <th>Rolle</th>
                   <th>Status</th>
-                  <th>Erstellt</th>
+                  <th>Registriert</th>
                   <th>Aktionen</th>
                 </tr>
               </thead>
               <tbody>
                 {users.map(user => (
-                  <tr key={user.id} className={selectedUser?.id === user.id ? 'selected' : ''}>
-                    <td>{user.email}</td>
+                  <tr key={user.id} className={isBlockedEmail(user.email) ? 'blocked-user' : ''}>
+                    <td>
+                      {user.email}
+                      {isBlockedEmail(user.email) && (
+                        <span className="blocked-badge">BLOCKIERT</span>
+                      )}
+                    </td>
                     <td>{user.name || '-'}</td>
                     <td>
                       <span className={`role-badge ${user.role}`}>
@@ -137,18 +159,21 @@ export default function AdminPanel() {
                       </span>
                     </td>
                     <td>
-                      {user.password ? (
-                        <span className="status-active">Aktiv</span>
-                      ) : (
-                        <span className="status-pending">Wartet auf Passwort</span>
-                      )}
+                      <span className={user.password ? 'status-active' : 'status-pending'}>
+                        {user.password ? 'Aktiv' : 'Wartet auf Passwort'}
+                      </span>
                     </td>
-                    <td>{new Date(user.created_at).toLocaleDateString('de-DE')}</td>
+                    <td>
+                      {new Date(user.created_at).toLocaleDateString('de-DE')}
+                    </td>
                     <td>
                       <div className="actions">
-                        {!user.password && (
+                        {!user.password && user.role !== 'admin' && (
                           <button
-                            onClick={() => setSelectedUser(user)}
+                            onClick={() => {
+                              setSelectedUser(user.id)
+                              setShowPasswordForm(true)
+                            }}
                             className="btn btn-primary"
                           >
                             Passwort setzen
@@ -156,7 +181,7 @@ export default function AdminPanel() {
                         )}
                         {user.role !== 'admin' && (
                           <button
-                            onClick={() => handleDeleteUser(user.id)}
+                            onClick={() => handleDeleteUser(user.id, user.email)}
                             className="btn btn-danger"
                           >
                             Löschen
@@ -171,36 +196,43 @@ export default function AdminPanel() {
           </div>
         </div>
 
-        {selectedUser && (
+        {showPasswordForm && (
           <div className="password-form">
-            <h3>Passwort für {selectedUser.email} setzen</h3>
-            <div className="form-group">
-              <input
-                type="password"
-                placeholder="Neues Passwort"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="form-input"
-              />
-            </div>
-            <div className="button-group">
-              <button
-                onClick={handleSetPassword}
-                disabled={!newPassword.trim()}
-                className="form-button"
-              >
-                Passwort setzen
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedUser(null)
-                  setNewPassword('')
-                }}
-                className="form-button secondary"
-              >
-                Abbrechen
-              </button>
-            </div>
+            <h3>Passwort für Benutzer setzen</h3>
+            <form onSubmit={handleSetPassword}>
+              <div className="form-group">
+                <label>Neues Passwort:</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="form-input"
+                  placeholder="Neues Passwort eingeben"
+                  required
+                  minLength={6}
+                />
+              </div>
+              <div className="button-group">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="form-button"
+                >
+                  {loading ? 'Wird gesetzt...' : 'Passwort setzen'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPasswordForm(false)
+                    setSelectedUser(null)
+                    setNewPassword('')
+                  }}
+                  className="form-button secondary"
+                >
+                  Abbrechen
+                </button>
+              </div>
+            </form>
           </div>
         )}
       </div>
