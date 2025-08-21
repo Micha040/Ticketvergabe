@@ -107,8 +107,31 @@ export default function AdminPanel() {
   }
 
   const isBlockedEmail = (email: string): boolean => {
+    const allowedDomains = [
+      'gmail.com',
+      'outlook.com',
+      'hotmail.com',
+      'yahoo.com',
+      'icloud.com',
+      'protonmail.com',
+      'tutanota.com',
+      'web.de',
+      'gmx.de',
+      't-online.de',
+      'freenet.de',
+      '1und1.de',
+      'arcor.de',
+      'freenet.de',
+      'posteo.de',
+      'mailbox.org',
+      'aol.com',
+      'live.com',
+      'msn.com',
+      'me.com',
+      'mac.com'
+    ];
     const domain = email.toLowerCase().split('@')[1];
-    return domain === 'mailrez.com';
+    return !allowedDomains.includes(domain);
   }
 
   if (loading && users.length === 0) {
